@@ -39,16 +39,67 @@ RevShop is a secure console-based e-commerce application for both buyers and sel
 ## Project Structure
 
 RevShop/
-├── src/main/java/com/revshop/
-│ ├── config/ # Configuration classes
-│ ├── dao/ # Data Access Objects
-│ ├── model/ # Entity classes
-│ ├── service/ # Business logic
-│ ├── util/ # Utility classes
-│ └── menu/ # Console menus
-├── src/main/resources/ # Configuration files
-├── src/test/java/ # Test classes
-└── sql/ # Database schema
+├── src/
+│   ├── main/
+│   │   ├── java/
+│   │   │   ├── com/
+│   │   │   │   └── revshop/
+│   │   │   │       ├── MainApplication.java
+│   │   │   │       ├── config/
+│   │   │   │       │   ├── DatabaseConfig.java
+│   │   │   │       │   └── LoggerConfig.java
+│   │   │   │       ├── dao/
+│   │   │   │       │   ├── BaseDAO.java
+│   │   │   │       │   ├── UserDAO.java
+│   │   │   │       │   ├── ProductDAO.java
+│   │   │   │       │   ├── OrderDAO.java
+│   │   │   │       │   ├── CartDAO.java
+│   │   │   │       │   ├── ReviewDAO.java
+│   │   │   │       │   └── SellerDAO.java
+│   │   │   │       ├── model/
+│   │   │   │       │   ├── User.java
+│   │   │   │       │   ├── Buyer.java
+│   │   │   │       │   ├── Seller.java
+│   │   │   │       │   ├── Product.java
+│   │   │   │       │   ├── CartItem.java
+│   │   │   │       │   ├── Order.java
+│   │   │   │       │   ├── OrderItem.java
+│   │   │   │       │   └── Review.java
+│   │   │   │       ├── service/
+│   │   │   │       │   ├── AuthService.java
+│   │   │   │       │   ├── BuyerService.java
+│   │   │   │       │   ├── SellerService.java
+│   │   │   │       │   ├── ProductService.java
+│   │   │   │       │   ├── OrderService.java
+│   │   │   │       │   ├── CartService.java
+│   │   │   │       │   └── NotificationService.java
+│   │   │   │       ├── util/
+│   │   │   │       │   ├── DatabaseUtil.java
+│   │   │   │       │   ├── ValidationUtil.java
+│   │   │   │       │   ├── PasswordUtil.java
+│   │   │   │       │   └── PaymentSimulator.java
+│   │   │   │       └── menu/
+│   │   │   │           ├── MainMenu.java
+│   │   │   │           ├── BuyerMenu.java
+│   │   │   │           └── SellerMenu.java
+│   │   │   └── resources/
+│   │   │       ├── log4j2.xml
+│   │   │       └── database.properties
+│   │   └── test/
+│   │       └── java/
+│   │           └── com/
+│   │               └── revshop/
+│   │                   └── test/
+│   │                       ├── UserDAOTest.java
+│   │                       ├── ProductServiceTest.java
+│   │                       ├── OrderServiceTest.java
+│   │                       └── AuthServiceTest.java
+│   └── sql/
+│       └── schema.sql
+├── lib/
+├── README.md
+├── pom.xml
+└── .gitignore
 
 ## Running the Application
 1. Configure database connection in `database.properties`
