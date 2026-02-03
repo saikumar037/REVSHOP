@@ -1,4 +1,6 @@
 # Compiled class files
+pom.xml
+
 *.class
 
 # Log file
