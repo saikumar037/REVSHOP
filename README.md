@@ -127,9 +127,9 @@ RevShop/
 ├── README.md
 ├── pom.xml
 └── .gitignore
+```
 
-
-▶ Running the Application
+## ▶ Running the Application
 
 1.Configure database connection in database.properties
 
@@ -143,14 +143,14 @@ RevShop/
 
 
 
-🧪 Testing
+## 🧪 Testing
 
 Run all unit tests using:
 
     mvn test
 
 
-🚀 Future Enhancements
+## 🚀 Future Enhancements
 
 • Web-based interface
 
