@@ -52,11 +52,11 @@ This project follows a layered architecture and demonstrates backend development
 4. Update database credentials in:
    src/main/resources/database.properties
 
-### Sample Configuration
+## 🗄 Sample Configuration
 
-db.url=jdbc:mysql://localhost:3306/revshop_db
-db.username=root
-db.password=your_password
+#### db.url=jdbc:mysql://localhost:3306/revshop_db
+#### db.username=root
+#### db.password=your_password
 
 
 
