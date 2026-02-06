@@ -133,15 +133,19 @@ public class MainMenu {
         System.out.println(option("11", "Add Review"));
 
         System.out.println();
+        System.out.println(subheader("❤️  Favorites"));
+        System.out.println(option("12", "Manage Favorites"));
+
+        System.out.println();
         System.out.println(subheader("🔔 Notifications"));
-        System.out.println(option("12", "View Notifications"));
-        System.out.println(option("13", "Mark Notification as Read"));
+        System.out.println(option("13", "View Notifications"));
+        System.out.println(option("14", "Mark Notification as Read"));
 
         System.out.println();
         System.out.println(subheader("👤 Account"));
-        System.out.println(option("14", "Update Profile"));
-        System.out.println(option("15", "Change Password"));
-        System.out.println(option("16", "Logout"));
+        System.out.println(option("15", "Update Profile"));
+        System.out.println(option("16", "Change Password"));
+        System.out.println(option("17", "Logout"));
 
         System.out.print(inputPrompt("Enter your choice: "));
 
@@ -194,26 +198,30 @@ public class MainMenu {
                     buyerService.addReview();
                     break;
                 case 12:
+                    System.out.println(info("Managing favorites..."));
+                    showFavoritesMenu();
+                    break;
+                case 13:
                     System.out.println(info("Loading notifications..."));
                     buyerService.viewNotifications();
                     break;
-                case 13:
+                case 14:
                     System.out.println(info("Marking notification as read..."));
                     buyerService.markNotificationAsRead();
                     break;
-                case 14:
+                case 15:
                     System.out.println(info("Updating profile..."));
                     if (authService.updateProfile()) {
                         System.out.println(success("Profile updated successfully!"));
                     }
                     break;
-                case 15:
+                case 16:
                     System.out.println(info("Changing password..."));
                     if (authService.changePassword()) {
                         System.out.println(success("Password changed successfully!"));
                     }
                     break;
-                case 16:
+                case 17:
                     authService.logout();
                     buyerService = null;
                     System.out.println(success("Logged out successfully!"));
@@ -336,5 +344,56 @@ public class MainMenu {
             System.out.println(error("Invalid input! Please enter a number."));
         }
         System.out.println();
+    }
+
+    private void showFavoritesMenu() {
+        while (true) {
+            System.out.println(CYAN_BOLD_BRIGHT + "\n╔═══════════════════════════════════════════════╗" + RESET);
+            System.out.println(CYAN_BOLD_BRIGHT + "║" + RESET + PURPLE_BOLD_BRIGHT + "            FAVORITES MANAGEMENT               " + RESET + CYAN_BOLD_BRIGHT + "║" + RESET);
+            System.out.println(CYAN_BOLD_BRIGHT + "╚═══════════════════════════════════════════════╝" + RESET);
+            System.out.println();
+            System.out.println(option("1", "View My Favorites"));
+            System.out.println(option("2", "Add Product to Favorites"));
+            System.out.println(option("3", "Remove Product from Favorites"));
+            System.out.println(option("4", "Toggle Favorite (Quick Add/Remove)"));
+            System.out.println(option("5", "Browse Products with Favorite Status"));
+            System.out.println(option("6", "Back to Buyer Menu"));
+            System.out.print(YELLOW_BOLD + "\nChoose an option: " + RESET);
+
+            try {
+                int choice = Integer.parseInt(scanner.nextLine());
+
+                switch (choice) {
+                    case 1:
+                        System.out.println(info("Loading your favorites..."));
+                        buyerService.viewFavorites();
+                        break;
+                    case 2:
+                        System.out.println(info("Adding to favorites..."));
+                        buyerService.addToFavorites();
+                        break;
+                    case 3:
+                        System.out.println(info("Removing from favorites..."));
+                        buyerService.removeFromFavorites();
+                        break;
+                    case 4:
+                        System.out.println(info("Toggling favorite status..."));
+                        buyerService.toggleFavorite();
+                        break;
+                    case 5:
+                        System.out.println(info("Browsing products with favorite status..."));
+                        buyerService.browseProductsWithFavorites();
+                        break;
+                    case 6:
+                        System.out.println(info("Returning to buyer menu..."));
+                        return;
+                    default:
+                        System.out.println(error("Invalid choice! Please try again."));
+                }
+            } catch (NumberFormatException e) {
+                System.out.println(error("Please enter a valid number!"));
+            }
+            System.out.println();
+        }
     }
 }

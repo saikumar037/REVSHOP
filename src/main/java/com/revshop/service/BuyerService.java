@@ -21,6 +21,7 @@ public class BuyerService {
     private ReviewDAO reviewDAO;
     private UserDAO userDAO;
     private NotificationService notificationService;
+    private FavoriteDAO favoriteDAO;
     private Scanner scanner;
     private int currentBuyerId;
 
@@ -31,6 +32,7 @@ public class BuyerService {
         this.reviewDAO = new ReviewDAO();
         this.userDAO = new UserDAO();
         this.notificationService = new NotificationService();
+        this.favoriteDAO = new FavoriteDAO();
         this.scanner = scanner;
         this.currentBuyerId = buyerId;
     }
@@ -86,6 +88,10 @@ public class BuyerService {
             }
             System.out.println(info("Stock: " + product.getStockQuantity()));
 
+            // Check if it's in favorites
+            boolean isFavorite = favoriteDAO.isFavorite(currentBuyerId, productId);
+            System.out.println(info("❤️  In Favorites: " + (isFavorite ? "Yes" : "No")));
+
             if (product.isLowStock()) {
                 System.out.println(warning("⚠️  Low stock alert! Only " + product.getStockQuantity() + " items left."));
             }
@@ -140,7 +146,9 @@ public class BuyerService {
                 System.out.println(info("No products in this category."));
             } else {
                 for (Product product : products) {
-                    System.out.println(productInfo(product.toString()));
+                    boolean isFavorite = favoriteDAO.isFavorite(currentBuyerId, product.getProductId());
+                    String favoriteStar = isFavorite ? "⭐ " : "";
+                    System.out.println(favoriteStar + productInfo(product.toString()));
                 }
             }
         } catch (NumberFormatException e) {
@@ -166,7 +174,9 @@ public class BuyerService {
         } else {
             System.out.println(success("Found " + products.size() + " product(s):"));
             for (Product product : products) {
-                System.out.println(productInfo(product.toString()));
+                boolean isFavorite = favoriteDAO.isFavorite(currentBuyerId, product.getProductId());
+                String favoriteStar = isFavorite ? "❤️  " : "";
+                System.out.println(favoriteStar + productInfo(product.toString()));
             }
         }
     }
@@ -226,7 +236,9 @@ public class BuyerService {
         double total = 0;
         for (int i = 0; i < cartItems.size(); i++) {
             CartItem item = cartItems.get(i);
-            System.out.println(option(String.valueOf(i + 1), item.toString()));
+            boolean isFavorite = favoriteDAO.isFavorite(currentBuyerId, item.getProductId());
+            String favoriteStar = isFavorite ? "❤️  " : "";
+            System.out.println(option(String.valueOf(i + 1), favoriteStar + item.toString()));
             total += item.getTotalPrice();
         }
 
@@ -418,7 +430,9 @@ public class BuyerService {
             if (order.getOrderItems() != null && !order.getOrderItems().isEmpty()) {
                 System.out.println(subheader("Items:"));
                 for (OrderItem item : order.getOrderItems()) {
-                    System.out.println("   " + item);
+                    boolean isFavorite = favoriteDAO.isFavorite(currentBuyerId, item.getProductId());
+                    String favoriteStar = isFavorite ? "❤️  " : "";
+                    System.out.println("   " + favoriteStar + item);
                 }
             }
         }
@@ -450,7 +464,9 @@ public class BuyerService {
             List<OrderItem> items = order.getOrderItems();
             for (int i = 0; i < items.size(); i++) {
                 OrderItem item = items.get(i);
-                System.out.println(option(String.valueOf(i + 1), item.getProduct().getName()));
+                boolean isFavorite = favoriteDAO.isFavorite(currentBuyerId, item.getProductId());
+                String favoriteStar = isFavorite ? "❤️  " : "";
+                System.out.println(option(String.valueOf(i + 1), favoriteStar + item.getProduct().getName()));
             }
 
             System.out.print(inputPrompt("Select item number to review: "));
@@ -511,6 +527,170 @@ public class BuyerService {
             }
         } catch (NumberFormatException e) {
             System.out.println(error("Invalid input!"));
+        }
+    }
+
+    // ================== FAVORITES METHODS ==================
+
+    // View favorites
+    public void viewFavorites() {
+        System.out.println(header("My Favorites ❤️"));
+        List<Product> favorites = favoriteDAO.getFavoriteProducts(currentBuyerId);
+
+        int favoriteCount = favoriteDAO.getFavoriteCount(currentBuyerId);
+        System.out.println(info("Total Favorites: " + favoriteCount));
+
+        if (favorites.isEmpty()) {
+            System.out.println(info("Your favorites list is empty."));
+            return;
+        }
+
+        System.out.println(success("You have " + favorites.size() + " favorite product(s):"));
+        System.out.println();
+
+        for (int i = 0; i < favorites.size(); i++) {
+            Product product = favorites.get(i);
+            System.out.println(option(String.valueOf(i + 1), product.getName()));
+            System.out.println("   " + info(product.getDescription()));
+            System.out.printf("   " + price("Price: $%.2f"), product.getFinalPrice().doubleValue());
+            if (product.getDiscountPrice() != null) {
+                System.out.printf(price(" (Save: $%.2f)"),
+                        product.getMrp().subtract(product.getDiscountPrice()).doubleValue());
+            }
+            System.out.println();
+            System.out.println("   " + info("Stock: " + product.getStockQuantity()));
+            System.out.println("   " + info("Category: " + product.getCategory()));
+
+            if (product.isLowStock()) {
+                System.out.println("   " + warning("⚠️  Low stock! Only " + product.getStockQuantity() + " left."));
+            }
+
+            System.out.println();
+        }
+    }
+
+    // Add product to favorites
+    public void addToFavorites() {
+        System.out.println(header("Add to Favorites ❤️"));
+        System.out.print(inputPrompt("Enter Product ID to add to favorites: "));
+
+        try {
+            int productId = Integer.parseInt(scanner.nextLine());
+            Product product = productDAO.getProductById(productId);
+
+            if (product == null) {
+                System.out.println(error("Product not found!"));
+                return;
+            }
+
+            if (!product.isActive()) {
+                System.out.println(error("Product is not available!"));
+                return;
+            }
+
+            if (favoriteDAO.isFavorite(currentBuyerId, productId)) {
+                System.out.println(warning("Product is already in your favorites!"));
+                return;
+            }
+
+            if (favoriteDAO.addToFavorites(currentBuyerId, productId)) {
+                System.out.println(success("✓ Added to favorites!"));
+
+                // Send notification
+                notificationService.sendNotification(currentBuyerId,
+                        "Added \"" + product.getName() + "\" to favorites!", "FAVORITE");
+            } else {
+                System.out.println(error("Failed to add to favorites!"));
+            }
+
+        } catch (NumberFormatException e) {
+            System.out.println(error("Invalid Product ID!"));
+        }
+    }
+
+    // Remove product from favorites
+    public void removeFromFavorites() {
+        System.out.println(header("Remove from Favorites"));
+
+        // First show current favorites
+        viewFavorites();
+
+        System.out.print(inputPrompt("\nEnter Product ID to remove from favorites: "));
+
+        try {
+            int productId = Integer.parseInt(scanner.nextLine());
+
+            if (favoriteDAO.removeFromFavorites(currentBuyerId, productId)) {
+                System.out.println(success("✓ Removed from favorites!"));
+            } else {
+                System.out.println(error("Product not found in your favorites!"));
+            }
+
+        } catch (NumberFormatException e) {
+            System.out.println(error("Invalid Product ID!"));
+        }
+    }
+
+    // Toggle favorite status
+    public void toggleFavorite() {
+        System.out.println(header("Quick Favorite Toggle"));
+        System.out.print(inputPrompt("Enter Product ID: "));
+
+        try {
+            int productId = Integer.parseInt(scanner.nextLine());
+            Product product = productDAO.getProductById(productId);
+
+            if (product == null) {
+                System.out.println(error("Product not found!"));
+                return;
+            }
+
+            if (favoriteDAO.isFavorite(currentBuyerId, productId)) {
+                // Remove from favorites
+                if (favoriteDAO.removeFromFavorites(currentBuyerId, productId)) {
+                    System.out.println(success("✓ Removed from favorites!"));
+                }
+            } else {
+                // Add to favorites
+                if (favoriteDAO.addToFavorites(currentBuyerId, productId)) {
+                    System.out.println(success("✓ Added to favorites!"));
+                }
+            }
+
+        } catch (NumberFormatException e) {
+            System.out.println(error("Invalid Product ID!"));
+        }
+    }
+
+    // Browse products with favorite status
+    public void browseProductsWithFavorites() {
+        System.out.println(header("Browse Products with Favorite Status"));
+        List<Product> products = productDAO.getAllProducts();
+
+        if (products.isEmpty()) {
+            System.out.println(info("No products available."));
+            return;
+        }
+
+        List<Integer> favoriteIds = favoriteDAO.getFavoriteProductIds(currentBuyerId);
+
+        for (Product product : products) {
+            boolean isFavorite = favoriteIds.contains(product.getProductId());
+            String favoriteStatus = isFavorite ? "❤️  " : "   ";
+
+            System.out.println(favoriteStatus + productInfo(product.toString()));
+
+            if (product.getDiscountPrice() != null) {
+                System.out.printf(price("   (Original: $%.2f, Save: $%.2f)%n"),
+                        product.getMrp().doubleValue(),
+                        product.getMrp().subtract(product.getDiscountPrice()).doubleValue());
+            }
+
+            if (product.isLowStock()) {
+                System.out.println(warning("   ⚠️  Low stock! Only " + product.getStockQuantity() + " left."));
+            }
+
+            System.out.println();
         }
     }
 }
