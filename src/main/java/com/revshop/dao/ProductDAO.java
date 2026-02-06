@@ -79,14 +79,14 @@ public class ProductDAO extends BaseDAO {
         return null;
     }
 
-    // Get all products
+    // Get all products - CHANGED TO SORT BY PRODUCT ID
     public List<Product> getAllProducts() {
         List<Product> products = new ArrayList<>();
         Connection conn = null;
         PreparedStatement pstmt = null;
         ResultSet rs = null;
 
-        String sql = "SELECT * FROM products WHERE is_active = TRUE ORDER BY name";
+        String sql = "SELECT * FROM products WHERE is_active = TRUE ORDER BY product_id ASC";
 
         try {
             conn = getConnection();
@@ -111,7 +111,7 @@ public class ProductDAO extends BaseDAO {
         PreparedStatement pstmt = null;
         ResultSet rs = null;
 
-        String sql = "SELECT * FROM products WHERE seller_id = ? AND is_active = TRUE ORDER BY name";
+        String sql = "SELECT * FROM products WHERE seller_id = ? AND is_active = TRUE ORDER BY product_id ASC";
 
         try {
             conn = getConnection();
@@ -137,7 +137,7 @@ public class ProductDAO extends BaseDAO {
         PreparedStatement pstmt = null;
         ResultSet rs = null;
 
-        String sql = "SELECT * FROM products WHERE category = ? AND is_active = TRUE ORDER BY name";
+        String sql = "SELECT * FROM products WHERE category = ? AND is_active = TRUE ORDER BY product_id ASC";
 
         try {
             conn = getConnection();
@@ -164,7 +164,7 @@ public class ProductDAO extends BaseDAO {
         ResultSet rs = null;
 
         String sql = "SELECT * FROM products WHERE (name LIKE ? OR description LIKE ? OR category LIKE ?) " +
-                "AND is_active = TRUE ORDER BY name";
+                "AND is_active = TRUE ORDER BY product_id ASC";
 
         try {
             conn = getConnection();
@@ -272,7 +272,7 @@ public class ProductDAO extends BaseDAO {
         ResultSet rs = null;
 
         String sql = "SELECT * FROM products WHERE seller_id = ? AND stock_quantity <= threshold_quantity " +
-                "AND is_active = TRUE ORDER BY stock_quantity";
+                "AND is_active = TRUE ORDER BY product_id ASC";
 
         try {
             conn = getConnection();
