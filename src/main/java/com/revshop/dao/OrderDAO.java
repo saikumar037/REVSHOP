@@ -4,6 +4,7 @@ import com.revshop.model.Order;
 import com.revshop.model.OrderItem;
 import com.revshop.model.Order.OrderStatus;
 import com.revshop.model.Order.PaymentStatus;
+import com.revshop.model.Product;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -14,6 +15,11 @@ import java.util.List;
 
 public class OrderDAO extends BaseDAO {
     private static final Logger logger = LogManager.getLogger(OrderDAO.class);
+    private ProductDAO productDAO;
+
+    public OrderDAO() {
+        this.productDAO = new ProductDAO();
+    }
 
     // Create order
     public boolean createOrder(Order order) {
@@ -185,6 +191,105 @@ public class OrderDAO extends BaseDAO {
         return orders;
     }
 
+    // Get order items for a specific seller in an order
+    public List<OrderItem> getOrderItemsForSeller(int orderId, int sellerId) {
+        List<OrderItem> orderItems = new ArrayList<>();
+        Connection conn = null;
+        PreparedStatement pstmt = null;
+        ResultSet rs = null;
+
+        String sql = "SELECT oi.*, p.* FROM order_items oi " +
+                "JOIN products p ON oi.product_id = p.product_id " +
+                "WHERE oi.order_id = ? AND p.seller_id = ?";
+
+        try {
+            conn = getConnection();
+            pstmt = conn.prepareStatement(sql);
+            pstmt.setInt(1, orderId);
+            pstmt.setInt(2, sellerId);
+            rs = pstmt.executeQuery();
+
+            while (rs.next()) {
+                OrderItem item = new OrderItem();
+                item.setOrderItemId(rs.getInt("order_item_id"));
+                item.setOrderId(rs.getInt("order_id"));
+                item.setProductId(rs.getInt("product_id"));
+                item.setQuantity(rs.getInt("quantity"));
+                item.setPrice(rs.getBigDecimal("price"));
+
+                // Extract product
+                Product product = new Product();
+                product.setProductId(rs.getInt("product_id"));
+                product.setSellerId(rs.getInt("seller_id"));
+                product.setName(rs.getString("name"));
+                product.setDescription(rs.getString("description"));
+                product.setCategory(rs.getString("category"));
+                product.setPrice(rs.getBigDecimal("price"));
+                product.setMrp(rs.getBigDecimal("mrp"));
+                product.setDiscountPrice(rs.getBigDecimal("discount_price"));
+                product.setStockQuantity(rs.getInt("stock_quantity"));
+                product.setThresholdQuantity(rs.getInt("threshold_quantity"));
+                product.setCreatedAt(rs.getTimestamp("created_at"));
+                product.setActive(rs.getBoolean("is_active"));
+
+                item.setProduct(product);
+                orderItems.add(item);
+            }
+        } catch (SQLException e) {
+            logger.error("Error getting order items for seller {} in order {}", sellerId, orderId, e);
+        } finally {
+            closeResources(rs, pstmt, conn);
+        }
+        return orderItems;
+    }
+
+    // Update order status for specific seller's items
+    public boolean updateOrderStatusForSeller(int orderId, int sellerId, OrderStatus newStatus) {
+        Connection conn = null;
+        PreparedStatement pstmt = null;
+
+        // First check if this seller has items in the order
+        String checkSql = "SELECT COUNT(*) FROM order_items oi " +
+                "JOIN products p ON oi.product_id = p.product_id " +
+                "WHERE oi.order_id = ? AND p.seller_id = ?";
+
+        String updateSql = "UPDATE orders SET status = ? WHERE order_id = ?";
+
+        try {
+            conn = getConnection();
+
+            // Check if seller has items in this order
+            pstmt = conn.prepareStatement(checkSql);
+            pstmt.setInt(1, orderId);
+            pstmt.setInt(2, sellerId);
+
+            ResultSet rs = pstmt.executeQuery();
+            if (rs.next() && rs.getInt(1) == 0) {
+                logger.warn("Seller {} has no items in order {}", sellerId, orderId);
+                return false;
+            }
+
+            pstmt.close();
+
+            // Update the order status
+            pstmt = conn.prepareStatement(updateSql);
+            pstmt.setString(1, newStatus.toString());
+            pstmt.setInt(2, orderId);
+
+            int affectedRows = pstmt.executeUpdate();
+
+            if (affectedRows > 0) {
+                logger.info("Order {} status updated to {} by seller {}", orderId, newStatus, sellerId);
+                return true;
+            }
+        } catch (SQLException e) {
+            logger.error("Error updating order status for seller {} in order {}", sellerId, orderId, e);
+        } finally {
+            closeResources(pstmt, conn);
+        }
+        return false;
+    }
+
     // Get order items
     public List<OrderItem> getOrderItems(int orderId) {
         List<OrderItem> orderItems = new ArrayList<>();
@@ -211,14 +316,21 @@ public class OrderDAO extends BaseDAO {
                 item.setPrice(rs.getBigDecimal("price"));
 
                 // Extract product
-                com.revshop.model.Product product = new com.revshop.model.Product();
+                Product product = new Product();
                 product.setProductId(rs.getInt("product_id"));
+                product.setSellerId(rs.getInt("seller_id"));
                 product.setName(rs.getString("name"));
                 product.setDescription(rs.getString("description"));
                 product.setCategory(rs.getString("category"));
                 product.setPrice(rs.getBigDecimal("price"));
-                item.setProduct(product);
+                product.setMrp(rs.getBigDecimal("mrp"));
+                product.setDiscountPrice(rs.getBigDecimal("discount_price"));
+                product.setStockQuantity(rs.getInt("stock_quantity"));
+                product.setThresholdQuantity(rs.getInt("threshold_quantity"));
+                product.setCreatedAt(rs.getTimestamp("created_at"));
+                product.setActive(rs.getBoolean("is_active"));
 
+                item.setProduct(product);
                 orderItems.add(item);
             }
         } catch (SQLException e) {
@@ -299,6 +411,63 @@ public class OrderDAO extends BaseDAO {
             closeResources(rs, pstmt, conn);
         }
         return orders;
+    }
+
+    // Check if seller has items in order
+    public boolean sellerHasItemsInOrder(int orderId, int sellerId) {
+        Connection conn = null;
+        PreparedStatement pstmt = null;
+        ResultSet rs = null;
+
+        String sql = "SELECT COUNT(*) FROM order_items oi " +
+                "JOIN products p ON oi.product_id = p.product_id " +
+                "WHERE oi.order_id = ? AND p.seller_id = ?";
+
+        try {
+            conn = getConnection();
+            pstmt = conn.prepareStatement(sql);
+            pstmt.setInt(1, orderId);
+            pstmt.setInt(2, sellerId);
+            rs = pstmt.executeQuery();
+
+            if (rs.next()) {
+                return rs.getInt(1) > 0;
+            }
+        } catch (SQLException e) {
+            logger.error("Error checking if seller has items in order", e);
+        } finally {
+            closeResources(rs, pstmt, conn);
+        }
+        return false;
+    }
+
+    // Get total sales amount for seller
+    public BigDecimal getTotalSalesForSeller(int sellerId) {
+        Connection conn = null;
+        PreparedStatement pstmt = null;
+        ResultSet rs = null;
+
+        String sql = "SELECT COALESCE(SUM(oi.quantity * oi.price), 0) as total_sales " +
+                "FROM orders o " +
+                "JOIN order_items oi ON o.order_id = oi.order_id " +
+                "JOIN products p ON oi.product_id = p.product_id " +
+                "WHERE p.seller_id = ? AND o.payment_status = 'COMPLETED'";
+
+        try {
+            conn = getConnection();
+            pstmt = conn.prepareStatement(sql);
+            pstmt.setInt(1, sellerId);
+            rs = pstmt.executeQuery();
+
+            if (rs.next()) {
+                return rs.getBigDecimal("total_sales");
+            }
+        } catch (SQLException e) {
+            logger.error("Error getting total sales for seller: {}", sellerId, e);
+        } finally {
+            closeResources(rs, pstmt, conn);
+        }
+        return BigDecimal.ZERO;
     }
 
     // Helper method to extract order from ResultSet

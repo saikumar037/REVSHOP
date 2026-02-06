@@ -205,95 +205,112 @@ public class SellerService {
             System.out.println(info("Buyer ID: " + order.getBuyerId()));
             System.out.println(info("Shipping: " + order.getShippingAddress()));
 
-            // Show items from this seller
-            System.out.println(subheader("Items from you:"));
-            for (OrderItem item : order.getOrderItems()) {
-                if (item.getProduct().getSellerId() == currentSellerId) {
+            // Get order items specifically for this seller
+            List<OrderItem> sellerItems = orderDAO.getOrderItemsForSeller(order.getOrderId(), currentSellerId);
+
+            if (sellerItems.isEmpty()) {
+                System.out.println(info("Items from you: None"));
+            } else {
+                System.out.println(subheader("Items from you:"));
+                for (OrderItem item : sellerItems) {
                     System.out.println("   " + item);
                 }
             }
         }
     }
 
-    // Update order status
+    // Update order status - FIXED VERSION
     public void updateOrderStatus() {
-        System.out.print(inputPrompt("Enter Order ID to update status: "));
-        try {
-            int orderId = Integer.parseInt(scanner.nextLine());
-            Order order = orderDAO.getOrderById(orderId);
+        System.out.println(header("Update Order Status"));
 
+        try {
+            System.out.print(inputPrompt("Enter Order ID to update status: "));
+            int orderId = Integer.parseInt(scanner.nextLine());
+
+            // First, check if this order contains products from this seller
+            List<OrderItem> sellerItems = orderDAO.getOrderItemsForSeller(orderId, currentSellerId);
+
+            if (sellerItems.isEmpty()) {
+                System.out.println(error("You don't have any items in this order!"));
+                return;
+            }
+
+            // Get the order details
+            Order order = orderDAO.getOrderById(orderId);
             if (order == null) {
                 System.out.println(error("Order not found!"));
                 return;
             }
 
-            // Check if seller has items in this order
-            boolean hasItems = false;
-            for (OrderItem item : order.getOrderItems()) {
-                if (item.getProduct().getSellerId() == currentSellerId) {
-                    hasItems = true;
-                    break;
+            // Show current status
+            System.out.println(info("Current Status: " + order.getStatus()));
+
+            // Show order items from this seller
+            System.out.println(subheader("Your items in this order:"));
+            for (OrderItem item : sellerItems) {
+                System.out.println("   " + item.getProduct().getName() + " x" + item.getQuantity() + " - $" + item.getTotalPrice());
+            }
+
+            // Show available statuses
+            System.out.println();
+            System.out.println(subheader("Select new status:"));
+            Order.OrderStatus[] statuses = Order.OrderStatus.values();
+            for (int i = 0; i < statuses.length; i++) {
+                if (statuses[i] != Order.OrderStatus.PENDING) { // Don't allow changing back to PENDING
+                    System.out.println(option(String.valueOf(i), statuses[i].toString()));
                 }
             }
 
-            if (!hasItems) {
-                System.out.println(error("You don't have any items in this order!"));
+            System.out.print(inputPrompt("Enter status number: "));
+            int statusChoice = Integer.parseInt(scanner.nextLine());
+
+            if (statusChoice < 0 || statusChoice >= statuses.length || statuses[statusChoice] == Order.OrderStatus.PENDING) {
+                System.out.println(error("Invalid choice!"));
                 return;
             }
 
-            System.out.println();
-            System.out.println(info("Current Status: " + order.getStatus()));
-            System.out.println(subheader("Select new status:"));
-            System.out.println(option("1", "PROCESSING"));
-            System.out.println(option("2", "SHIPPED"));
-            System.out.println(option("3", "DELIVERED"));
-            System.out.println(option("4", "CANCELLED"));
+            Order.OrderStatus newStatus = statuses[statusChoice];
 
-            System.out.print(inputPrompt("Enter choice: "));
-            int choice = Integer.parseInt(scanner.nextLine());
-
-            Order.OrderStatus newStatus;
-            switch (choice) {
-                case 1:
-                    newStatus = Order.OrderStatus.PROCESSING;
-                    break;
-                case 2:
-                    newStatus = Order.OrderStatus.SHIPPED;
-                    break;
-                case 3:
-                    newStatus = Order.OrderStatus.DELIVERED;
-                    break;
-                case 4:
-                    newStatus = Order.OrderStatus.CANCELLED;
-
-                    // Restore stock if cancelled
-                    System.out.print(inputPrompt("Restore stock quantities? (yes/no): "));
-                    String restoreStock = scanner.nextLine().trim();
-                    if (restoreStock.equalsIgnoreCase("yes")) {
-                        for (OrderItem item : order.getOrderItems()) {
-                            if (item.getProduct().getSellerId() == currentSellerId) {
-                                productDAO.updateStockQuantity(item.getProductId(), item.getQuantity());
-                            }
-                        }
-                        System.out.println(success("Stock quantities restored!"));
-                    }
-                    break;
-                default:
-                    System.out.println(error("Invalid choice!"));
+            // Special handling for CANCELLED status
+            if (newStatus == Order.OrderStatus.CANCELLED) {
+                System.out.print(inputPrompt("Are you sure you want to cancel this order? (yes/no): "));
+                String confirmation = scanner.nextLine().trim();
+                if (!confirmation.equalsIgnoreCase("yes")) {
+                    System.out.println(info("Order cancellation cancelled."));
                     return;
+                }
+
+                System.out.print(inputPrompt("Restore stock quantities? (yes/no): "));
+                String restoreStock = scanner.nextLine().trim();
+                if (restoreStock.equalsIgnoreCase("yes")) {
+                    for (OrderItem item : sellerItems) {
+                        productDAO.updateStockQuantity(item.getProductId(), item.getQuantity());
+                    }
+                    System.out.println(success("Stock quantities restored!"));
+                }
             }
 
-            if (orderDAO.updateOrderStatus(orderId, newStatus)) {
+            // Update status for this seller's items only
+            if (orderDAO.updateOrderStatusForSeller(orderId, currentSellerId, newStatus)) {
                 System.out.println(success("Order status updated to " + newStatus + "!"));
 
                 // Send notification to buyer
-                notificationService.sendNotification(order.getBuyerId(),
-                        "Order #" + orderId + " status updated to " + newStatus, "ORDER_UPDATE");
+                notificationService.sendNotification(
+                        order.getBuyerId(),
+                        "Order #" + orderId + " status updated to " + newStatus + " by seller",
+                        "ORDER_UPDATE"
+                );
+
+                logger.info("Order {} status updated to {} by seller {}", orderId, newStatus, currentSellerId);
             } else {
                 System.out.println(error("Failed to update order status!"));
             }
+
         } catch (NumberFormatException e) {
-            System.out.println(error("Invalid input!"));
+            System.out.println(error("Invalid input! Please enter a valid number."));
+        } catch (Exception e) {
+            System.out.println(error("Error: " + e.getMessage()));
+            logger.error("Error updating order status: {}", e.getMessage());
         }
     }
 
@@ -385,6 +402,8 @@ public class SellerService {
     // View sales report
     public void viewSalesReport() {
         System.out.println(header("Sales Report 📊"));
+
+        // Get all orders for this seller
         List<Order> orders = orderDAO.getOrdersBySeller(currentSellerId);
 
         if (orders.isEmpty()) {
@@ -395,35 +414,79 @@ public class SellerService {
         double totalSales = 0;
         int totalItems = 0;
         int completedOrders = 0;
+        int pendingOrders = 0;
 
         for (Order order : orders) {
+            // Count orders by status
             if (order.getStatus() == Order.OrderStatus.DELIVERED &&
                     order.getPaymentStatus() == Order.PaymentStatus.COMPLETED) {
                 completedOrders++;
+            } else if (order.getStatus() == Order.OrderStatus.PENDING) {
+                pendingOrders++;
+            }
 
-                for (OrderItem item : order.getOrderItems()) {
-                    if (item.getProduct().getSellerId() == currentSellerId) {
-                        totalSales += item.getTotalPrice().doubleValue();
-                        totalItems += item.getQuantity();
-                    }
+            // Get seller's items in this order
+            List<OrderItem> sellerItems = orderDAO.getOrderItemsForSeller(order.getOrderId(), currentSellerId);
+            for (OrderItem item : sellerItems) {
+                if (order.getStatus() == Order.OrderStatus.DELIVERED &&
+                        order.getPaymentStatus() == Order.PaymentStatus.COMPLETED) {
+                    totalSales += item.getTotalPrice().doubleValue();
+                    totalItems += item.getQuantity();
                 }
             }
         }
 
-        System.out.println(info("Completed Orders: " + completedOrders));
-        System.out.println(info("Total Items Sold: " + totalItems));
-        System.out.printf(price("Total Sales: $%.2f%n"), totalSales);
+        System.out.println(info("Order Summary:"));
+        System.out.println(info("  Completed Orders: " + completedOrders));
+        System.out.println(info("  Pending Orders: " + pendingOrders));
+        System.out.println(info("  Total Items Sold: " + totalItems));
+        System.out.printf(price("  Total Sales Revenue: $%.2f%n"), totalSales);
+
+        if (totalItems > 0) {
+            System.out.printf(price("  Average Order Value: $%.2f%n"), totalSales / completedOrders);
+        }
 
         // Show inventory status
         System.out.println();
         System.out.println(header("Inventory Status 📦"));
         List<Product> products = productDAO.getProductsBySeller(currentSellerId);
+
+        if (products.isEmpty()) {
+            System.out.println(info("No products in inventory."));
+            return;
+        }
+
+        int lowStockCount = 0;
+        int outOfStockCount = 0;
+
         for (Product product : products) {
-            String stockStatus = product.isLowStock() ? "LOW STOCK" : "IN STOCK";
-            String statusColor = product.isLowStock() ? RED_BRIGHT : GREEN_BRIGHT;
+            String stockStatus;
+            String statusColor;
+
+            if (product.getStockQuantity() == 0) {
+                stockStatus = "OUT OF STOCK";
+                statusColor = RED_BRIGHT;
+                outOfStockCount++;
+            } else if (product.isLowStock()) {
+                stockStatus = "LOW STOCK";
+                statusColor = YELLOW_BRIGHT;
+                lowStockCount++;
+            } else {
+                stockStatus = "IN STOCK";
+                statusColor = GREEN_BRIGHT;
+            }
+
             System.out.printf("%-20s: %3d units (%s)%n",
                     product.getName(), product.getStockQuantity(),
                     statusColor + stockStatus + RESET);
+        }
+
+        System.out.println();
+        if (lowStockCount > 0) {
+            System.out.println(warning("⚠️  You have " + lowStockCount + " product(s) with low stock."));
+        }
+        if (outOfStockCount > 0) {
+            System.out.println(error("❌ You have " + outOfStockCount + " product(s) out of stock."));
         }
     }
 
