@@ -34,7 +34,7 @@ This project follows a layered architecture and demonstrates backend development
 
 ## 🛠 Technology Stack
 
-- Java 11
+- Java 21
 - MySQL Database
 - JDBC for database connectivity
 - Log4j2 for logging

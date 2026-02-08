@@ -31,7 +31,7 @@
 │     ORDERS      │      │   ORDER_ITEMS   │      │     REVIEWS     │
 ├─────────────────┤      ├─────────────────┤      ├─────────────────┤
 │ order_id (PK)   │◄─────┤ order_id (FK)   │─────►│ order_id (FK)   │
-│ buyer_id (FK)   │      │ order_item_id(PK)│      │ review_id (PK)  │
+│ buyer_id (FK)   │      │order_item_id(PK)│      │ review_id (PK)  │
 │ order_date      │      │ product_id (FK) │◄─────┤ product_id (FK) │
 │ total_amount    │      │ quantity        │      │ buyer_id (FK)   │
 │ shipping_addr   │      │ price           │      │ rating          │
